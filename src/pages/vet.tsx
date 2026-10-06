@@ -61,12 +61,12 @@ function ExamSheet({ appt, onClose }: { appt: Appointment | null; onClose: () =>
   const save = (complete: boolean) => {
     if (!appt || !p) return;
     if (!f.diagnosis) return toast.error("Add a diagnosis before saving.");
-    if (f.medicine && p.allergies !== "None" && f.medicine.toLowerCase().includes(p.allergies.toLowerCase().split(" ")[0])) return toast.error(`${p.name} is allergic to ${p.allergies}.`);
+    if (f.medicine && p.allergies !== "None" && f.medicine.toLowerCase().includes(p.allergies.toLowerCase().split(" ")[0] ?? "")) return toast.error(`${p.name} is allergic to ${p.allergies}.`);
     update((d) => ({
       ...d,
       records: [...d.records, { id: uid("m"), petId: p.id, vetId: DEMO_VET_ID, date: TODAY, symptoms: f.symptoms, diagnosis: f.diagnosis, treatment: f.treatment, notes: f.notes, weight: +f.weight || p.weight, temp: +f.temp || 38.5 }],
       prescriptions: f.medicine ? [...d.prescriptions, { id: uid("rx"), petId: p.id, vetId: DEMO_VET_ID, date: TODAY, medicine: f.medicine, dosage: f.dosage, frequency: f.frequency, duration: f.duration }] : d.prescriptions,
-      inventory: f.medicine ? d.inventory.map((i) => i.name.toLowerCase().startsWith(f.medicine.toLowerCase().split(" ")[0]) ? { ...i, stock: Math.max(0, i.stock - 1) } : i) : d.inventory,
+      inventory: f.medicine ? d.inventory.map((i) => i.name.toLowerCase().startsWith(f.medicine.toLowerCase().split(" ")[0] ?? "") ? { ...i, stock: Math.max(0, i.stock - 1) } : i) : d.inventory,
     }));
     if (complete) setApptStatus(appt.id, "Completed");
     toast.success(complete ? `Visit completed for ${p.name}.` : "Exam notes saved.");

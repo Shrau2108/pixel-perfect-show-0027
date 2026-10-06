@@ -54,7 +54,7 @@ export function AdminDashboard() {
           <div className="h-40 w-40"><ResponsiveContainer><PieChart><Pie data={breakdown} dataKey="value" innerRadius={45} outerRadius={70} stroke="none">{breakdown.map((b) => <Cell key={b.name} fill={colors[STATUSES.indexOf(b.name as never)]} />)}</Pie><Tooltip {...tip} /></PieChart></ResponsiveContainer></div>
           <ul className="space-y-1.5 text-xs">{breakdown.map((b) => <li key={b.name} className="flex items-center gap-2"><span className="size-2 rounded-full" style={{ background: colors[STATUSES.indexOf(b.name as never)] }} />{b.name} · {b.value}</li>)}</ul>
         </Panel>
-        <Panel title="Revenue · this week" meta={inr(revSeries.reduce((s, x) => s + x.rev, 0))} className="xl:col-span-2" bodyClass="h-56 p-4">
+        <Panel title="Revenue · this week" meta={inr(revSeries.reduce((s, x) => s + (x.rev ?? 0), 0))} className="xl:col-span-2" bodyClass="h-56 p-4">
           <ResponsiveContainer><AreaChart data={revSeries}><defs><linearGradient id="rv" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor={C.amber} stopOpacity={0.4} /><stop offset="1" stopColor={C.amber} stopOpacity={0} /></linearGradient></defs>
             <CartesianGrid stroke="var(--border)" vertical={false} /><XAxis dataKey="d" stroke="var(--faint)" fontSize={11} /><YAxis stroke="var(--faint)" fontSize={11} /><Tooltip {...tip} formatter={(v: number) => inr(v)} /><Area dataKey="rev" stroke={C.amber} fill="url(#rv)" strokeWidth={2} /></AreaChart></ResponsiveContainer>
         </Panel>

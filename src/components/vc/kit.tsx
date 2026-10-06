@@ -9,7 +9,7 @@ import rabbit from "@/assets/pet-rabbit.jpg";
 
 const PHOTOS: Record<string, string> = { Dog: dog, Cat: cat, Bird: bird, Rabbit: rabbit };
 
-export function PetPhoto({ pet, className }: { pet?: Pet; className?: string }) {
+export function PetPhoto({ pet, className }: { pet?: Pet | undefined; className?: string }) {
   const src = pet ? PHOTOS[pet.species] : undefined;
   if (!src)
     return (
