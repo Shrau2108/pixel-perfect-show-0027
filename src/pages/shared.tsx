@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 import { Plus, ArrowUpDown, Download, BookOpen } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -7,8 +7,8 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Switch } from "@/components/ui/switch";
 import {
-  ALLOWED, TODAY, fmtDate, inr, invoiceTotal, setApptStatus, uid, update, useDB,
-  type ApptStatus, type Appointment, type Pet, type Role,
+  ALLOWED, TODAY, fmtDate, inr, invoiceTotal, resetDemoDB, setApptStatus, uid, update, useDB,
+  type ApptStatus, type Appointment, type ClinicSettings, type Pet, type Role,
 } from "@/lib/data";
 import { Empty, Field, PageHeader, Panel, PetPhoto, Pill, SearchBox, StatusBadge, Table, Td, Th, inputCls, Kpi } from "@/components/vc/kit";
 
@@ -490,23 +490,146 @@ export function HelpPage({ role }: { role: Role }) {
 }
 
 export function SettingsPage() {
-  const [s, setS] = useState({ sms: true, email: true, reminders: true, autoConfirm: false });
+  const db = useDB();
+  const [profile, setProfile] = useState({
+    clinicName: db.settings.clinicName,
+    openingHours: db.settings.openingHours,
+    slotDurationMinutes: db.settings.slotDurationMinutes,
+    consultationFee: db.settings.consultationFee,
+  });
+  const [resetOpen, setResetOpen] = useState(false);
+
+  useEffect(() => {
+    setProfile({
+      clinicName: db.settings.clinicName,
+      openingHours: db.settings.openingHours,
+      slotDurationMinutes: db.settings.slotDurationMinutes,
+      consultationFee: db.settings.consultationFee,
+    });
+  }, [db.settings.clinicName, db.settings.openingHours, db.settings.slotDurationMinutes, db.settings.consultationFee]);
+
+  const saveProfile = () => {
+    update((d) => ({
+      ...d,
+      settings: {
+        ...d.settings,
+        clinicName: profile.clinicName.trim() || "VetCore Animal Hospital",
+        openingHours: profile.openingHours.trim() || "Mon–Sat · 09:00–18:00",
+        slotDurationMinutes: Number(profile.slotDurationMinutes) || 30,
+        consultationFee: Number(profile.consultationFee) || 700,
+      },
+    }));
+    toast.success("Clinic settings saved.");
+  };
+
+  const toggleSetting = (key: keyof ClinicSettings) => {
+    update((d) => ({
+      ...d,
+      settings: {
+        ...d.settings,
+        [key]: !d.settings[key],
+      },
+    }));
+    toast.success("Preference updated.");
+  };
+
+  const handleReset = () => {
+    resetDemoDB();
+    setResetOpen(false);
+    toast.success("Demo database reset to initial seeds.");
+  };
+
   return (
     <>
-      <PageHeader eyebrow="Configuration" title="Clinic settings" />
+      <PageHeader eyebrow="Configuration" title="Clinic settings" sub="Configure operational parameters, notification rules, and demo persistence." />
       <div className="grid max-w-4xl gap-6 md:grid-cols-2">
         <Panel title="Clinic profile" bodyClass="grid gap-3 p-5">
-          <Field label="Clinic name"><input className={inputCls} defaultValue="VetCore Animal Hospital" /></Field>
-          <Field label="Opening hours"><input className={inputCls} defaultValue="Mon–Sat · 09:00–18:00" /></Field>
-          <Field label="Slot length"><select className={inputCls} defaultValue="30"><option value="15">15 min</option><option value="30">30 min</option></select></Field>
-          <Button className="justify-self-start" onClick={() => toast.success("Settings saved (demo)")}>Save</Button>
+          <Field label="Clinic name">
+            <input
+              className={inputCls}
+              value={profile.clinicName}
+              onChange={(e) => setProfile({ ...profile, clinicName: e.target.value })}
+            />
+          </Field>
+          <Field label="Opening hours">
+            <input
+              className={inputCls}
+              value={profile.openingHours}
+              onChange={(e) => setProfile({ ...profile, openingHours: e.target.value })}
+            />
+          </Field>
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Slot length">
+              <select
+                className={inputCls}
+                value={String(profile.slotDurationMinutes)}
+                onChange={(e) => setProfile({ ...profile, slotDurationMinutes: Number(e.target.value) })}
+              >
+                <option value="15">15 min</option>
+                <option value="30">30 min</option>
+                <option value="45">45 min</option>
+                <option value="60">60 min</option>
+              </select>
+            </Field>
+            <Field label="Consultation fee (₹)">
+              <input
+                type="number"
+                className={inputCls}
+                value={profile.consultationFee}
+                onChange={(e) => setProfile({ ...profile, consultationFee: Number(e.target.value) })}
+              />
+            </Field>
+          </div>
+          <Button className="justify-self-start" onClick={saveProfile}>Save profile</Button>
         </Panel>
-        <Panel title="Notifications" bodyClass="divide-y divide-border">
-          {([["sms", "SMS reminders"], ["email", "Email receipts"], ["reminders", "Vaccination reminders"], ["autoConfirm", "Auto-confirm owner requests"]] as const).map(([k, l]) => (
-            <label key={k} className="flex items-center justify-between px-5 py-4 text-sm"><span>{l}</span><Switch checked={s[k]} onCheckedChange={(v) => setS({ ...s, [k]: v })} /></label>
+
+        <Panel title="Notifications & Automation" bodyClass="divide-y divide-border">
+          {([
+            ["smsReminders", "SMS reminders", "Send automated SMS reminders for appointments"],
+            ["emailReceipts", "Email receipts", "Dispatch PDF payment receipts to pet owners"],
+            ["vaxReminders", "Vaccination reminders", "Trigger notifications when vaccinations are due"],
+            ["autoConfirmBookings", "Auto-confirm owner requests", "Automatically confirm owner booking requests"],
+          ] as const).map(([k, l, hint]) => (
+            <label key={k} className="flex items-center justify-between px-5 py-4 text-sm">
+              <div>
+                <p className="font-medium text-strong">{l}</p>
+                <p className="text-xs text-muted-foreground">{hint}</p>
+              </div>
+              <Switch
+                checked={Boolean(db.settings[k as keyof ClinicSettings])}
+                onCheckedChange={() => toggleSetting(k as keyof ClinicSettings)}
+              />
+            </label>
           ))}
         </Panel>
       </div>
+
+      <div className="mt-6 max-w-4xl">
+        <Panel title="Demo Environment" bodyClass="flex flex-wrap items-center justify-between gap-4 p-5">
+          <div>
+            <p className="text-sm font-medium text-strong">Reset demo database</p>
+            <p className="text-xs text-muted-foreground">Restore all initial sample appointments, patients, records, stock levels, and settings.</p>
+          </div>
+          <Button variant="outline" className="border-err/30 text-err hover:bg-err/10" onClick={() => setResetOpen(true)}>
+            Reset to demo seeds
+          </Button>
+        </Panel>
+      </div>
+
+      <Dialog open={resetOpen} onOpenChange={setResetOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Reset demo data?</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            This will clear your current in-memory and persisted demo changes and restore the original seed dataset.
+          </p>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setResetOpen(false)}>Cancel</Button>
+            <Button variant="destructive" onClick={handleReset}>Yes, reset demo data</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
